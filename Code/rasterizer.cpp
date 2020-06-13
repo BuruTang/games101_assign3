@@ -278,6 +278,41 @@ void rst::rasterizer::rasterize_triangle(const Triangle &t, const std::array<Eig
     // Use: payload.view_pos = interpolated_shadingcoords;
     // Use: Instead of passing the triangle's color directly to the frame buffer, pass the color to the shaders first to get the final color;
     // Use: auto pixel_color = fragment_shader(payload);
+
+    auto v = t.toVector4();
+
+    //find out the bounding box of current triangle
+    int xLeftBound, xRightBound, yDownBound, yUpBound;
+    xLeftBound = v[0].x();
+    xRightBound = v[0].x();
+    yDownBound = v[0].y();
+    yUpBound = v[0].y();
+    for (auto i : {1, 2})
+    {
+        if (v[i].x() < xLeftBound)
+            xLeftBound = v[i].x();
+        if (v[i].x() > xRightBound)
+            xRightBound = v[i].x();
+        if (v[i].y() < yDownBound)
+            yDownBound = v[i].y();
+        if (v[i].y() > yUpBound)
+            yUpBound = v[i].y();
+    }
+
+    //pixel_wise interpolation
+    for (int x = xLeftBound; x <= xRightBound; x++)
+    {
+        for (int y = yDownBound; y <= yUpBound; y++)
+        {
+            //    * v[i].w() is the vertex view space depth value z.
+            //    * Z is interpolated view space depth for the current pixel
+            //    * zp is depth between zNear and zFar, used for z-buffer
+            auto [alpha, beta, gamma] = computeBarycentric2D(x, y, t.v);
+            float Z = 1.0 / (alpha / v[0].w() + beta / v[1].w() + gamma / v[2].w());
+            float zp = alpha * v[0].z() / v[0].w() + beta * v[1].z() / v[1].w() + gamma * v[2].z() / v[2].w();
+            zp *= Z;
+        }
+    }
 }
 
 void rst::rasterizer::set_model(const Eigen::Matrix4f &m)
